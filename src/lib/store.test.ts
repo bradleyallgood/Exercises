@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -40,5 +41,39 @@ describe("file activity store", () => {
 
     const list = await store.list();
     expect(list.map((a) => a.type)).toEqual(["walk", "run"]);
+  });
+
+  it("updates only the given fields", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    const created = await store.create({
+      type: "run",
+      durationMinutes: 10,
+      distanceKm: 2,
+      performedAt: "2026-10-01T10:00:00.000Z",
+    });
+
+    const updated = await store.update(created.id, { durationMinutes: 20 });
+
+    expect(updated).toEqual({ ...created, durationMinutes: 20 });
+    expect(await store.list()).toEqual([updated]);
+  });
+
+  it("returns null when updating an unknown id", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    expect(await store.update(randomUUID(), { durationMinutes: 20 })).toBeNull();
+  });
+
+  it("deletes only the given activity", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    const keep = await store.create({ type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" });
+    const remove = await store.create({ type: "walk", durationMinutes: 10, performedAt: "2026-10-20T10:00:00.000Z" });
+
+    expect(await store.delete(remove.id)).toBe(true);
+    expect(await store.list()).toEqual([keep]);
+  });
+
+  it("returns false when deleting an unknown id", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    expect(await store.delete(randomUUID())).toBe(false);
   });
 });

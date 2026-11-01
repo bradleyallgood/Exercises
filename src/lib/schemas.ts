@@ -16,8 +16,15 @@ export const activityInputSchema = z.object({
   performedAt: z.iso.datetime(),
 });
 
+export const activityPatchSchema = activityInputSchema
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, "Provide at least one field to update");
+
 /** What clients send us. */
 export type ActivityInput = z.infer<typeof activityInputSchema>;
+
+/** What clients send to change an activity: any subset of the input. */
+export type ActivityPatch = z.infer<typeof activityPatchSchema>;
 
 /** What we store and return: the input plus server-generated fields. */
 export type Activity = ActivityInput & {

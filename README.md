@@ -48,7 +48,7 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 
 ## Exercises (in priority order for job readiness)
 
-1. **Postgres + ORM.** Write a second `ActivityStore` backed by Postgres using Prisma or Drizzle, and swap it in. The route and page should not change. This is the biggest gap to close: typed database access.
+1. ~~**Postgres + ORM.** Write a second `ActivityStore` backed by Postgres using Prisma or Drizzle, and swap it in. The route and page should not change. This is the biggest gap to close: typed database access.~~
 2. **Edit and delete.** Add `PATCH` and `DELETE` at `app/api/activities/[id]/route.ts` (note: `params` is a Promise in current Next.js). Return `404` for unknown ids. Add tests.
 3. **Server Actions.** Replace the fetch in `ActivityForm` with a Server Action and compare. Know when you would pick each.
 4. **Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Activity, ActivityInput } from "./schemas";
+import type { Activity, ActivityInput, ActivityPatch } from "./schemas";
 import { createPostgresActivityStore } from "./postgres-store";
 
 
@@ -15,6 +15,10 @@ import { createPostgresActivityStore } from "./postgres-store";
 export interface ActivityStore {
   list(): Promise<Activity[]>;
   create(input: ActivityInput): Promise<Activity>;
+  /** Returns the updated activity, or null if the id is unknown. */
+  update(id: string, patch: ActivityPatch): Promise<Activity | null>;
+  /** Returns false if the id is unknown. */
+  delete(id: string): Promise<boolean>;
 }
 
 export function createFileActivityStore(filePath: string): ActivityStore {
@@ -26,6 +30,11 @@ export function createFileActivityStore(filePath: string): ActivityStore {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw error;
     }
+  }
+
+  async function writeAll(all: Activity[]): Promise<void> {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify(all, null, 2), "utf8");
   }
 
   return {
@@ -43,9 +52,25 @@ export function createFileActivityStore(filePath: string): ActivityStore {
         createdAt: new Date().toISOString(),
       };
       all.push(activity);
-      await mkdir(path.dirname(filePath), { recursive: true });
-      await writeFile(filePath, JSON.stringify(all, null, 2), "utf8");
+      await writeAll(all);
       return activity;
+    },
+
+    async update(id, patch) {
+      const all = await readAll();
+      const existing = all.find((a) => a.id === id);
+      if (!existing) return null;
+      const updated: Activity = { ...existing, ...patch };
+      await writeAll(all.map((a) => (a.id === id ? updated : a)));
+      return updated;
+    },
+
+    async delete(id) {
+      const all = await readAll();
+      const remaining = all.filter((a) => a.id !== id);
+      if (remaining.length === all.length) return false;
+      await writeAll(remaining);
+      return true;
     },
   };
 }

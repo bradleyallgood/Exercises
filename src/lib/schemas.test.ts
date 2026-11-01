@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityInputSchema } from "./schemas";
+import { activityInputSchema, activityPatchSchema } from "./schemas";
 
 const valid = {
   type: "run",
@@ -35,5 +35,23 @@ describe("activityInputSchema", () => {
     expect(activityInputSchema.safeParse({ ...valid, performedAt: "yesterday" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("activityPatchSchema", () => {
+  it("accepts a subset of fields", () => {
+    expect(activityPatchSchema.safeParse({ durationMinutes: 45 }).success).toBe(true);
+  });
+
+  it("still validates the fields it is given", () => {
+    expect(activityPatchSchema.safeParse({ durationMinutes: -5 }).success).toBe(false);
+  });
+
+  it("rejects an empty patch", () => {
+    expect(activityPatchSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("rejects a patch with only unknown fields", () => {
+    expect(activityPatchSchema.safeParse({ id: "abc" }).success).toBe(false);
   });
 });
