@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityForm } from "@/components/ActivityForm";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { SignOutButton } from "@/components/SignOutButton";
 import { getActivities } from "@/lib/activities";
 import { getUser } from "@/lib/session";
@@ -13,11 +14,6 @@ import { summarize } from "@/lib/stats";
 // Reading the session makes Dashboard request-time, so it streams in behind
 // Suspense while the heading is prerendered into a static shell. force-dynamic
 // is gone: only the data is cached, per user. See lib/activities.ts.
-
-const dateFormat = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 export default function HomePage() {
   return (
@@ -79,7 +75,9 @@ async function Dashboard() {
                   {a.distanceKm !== undefined ? ` · ${a.distanceKm} km` : ""}
                 </span>
               </span>
-              <span className="muted">{dateFormat.format(new Date(a.performedAt))}</span>
+              <span className="muted">
+                <LocalDateTime value={a.performedAt} />
+              </span>
             </li>
           ))}
         </ul>
