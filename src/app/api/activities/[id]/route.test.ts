@@ -2,19 +2,30 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { activityStore } from "@/lib/store";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { activityStore } from "@/lib/activity-store";
+import { getUser } from "@/lib/session";
 import { DELETE, PATCH } from "./route";
 
 const { dataFile } = vi.hoisted(() => ({
   dataFile: `activity-route-test-${process.pid}.json`,
 }));
 
-// Runs against a real file store in the temp dir, never the app's own data.
-vi.mock("@/lib/store", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/store")>();
-  return { ...actual, activityStore: actual.createFileActivityStore(path.join(tmpdir(), dataFile)) };
+// Runs against a real file store in the temp dir, never a database.
+vi.mock("@/lib/activity-store", async () => {
+  const { createFileActivityStore } = await import("@/lib/store");
+  return { activityStore: createFileActivityStore(path.join(tmpdir(), dataFile)) };
 });
+
+vi.mock("@/lib/session", () => ({ getUser: vi.fn() }));
+
+function signInAs(id: string | null) {
+  vi.mocked(getUser).mockResolvedValue(
+    (id ? { id } : null) as Awaited<ReturnType<typeof getUser>>,
+  );
+}
+
+beforeEach(() => signInAs("alice"));
 
 afterEach(async () => {
   await rm(path.join(tmpdir(), dataFile), { force: true });
@@ -29,7 +40,7 @@ function patchRequest(body: string) {
 }
 
 function seed() {
-  return activityStore.create({
+  return activityStore.create("alice", {
     type: "run",
     durationMinutes: 30,
     performedAt: "2026-10-30T10:00:00.000Z",
@@ -47,6 +58,32 @@ describe("PATCH /api/activities/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: { ...created, durationMinutes: 45 } });
+  });
+
+  it("returns 401 when signed out and leaves the activity unchanged", async () => {
+    const created = await seed();
+    signInAs(null);
+
+    const response = await PATCH(
+      patchRequest(JSON.stringify({ durationMinutes: 45 })),
+      context(created.id),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await activityStore.list("alice")).toEqual([created]);
+  });
+
+  it("returns 404 for another user's activity and leaves it unchanged", async () => {
+    const created = await seed();
+    signInAs("bob");
+
+    const response = await PATCH(
+      patchRequest(JSON.stringify({ durationMinutes: 45 })),
+      context(created.id),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await activityStore.list("alice")).toEqual([created]);
   });
 
   it("returns 404 for an unknown id", async () => {
@@ -80,7 +117,7 @@ describe("PATCH /api/activities/[id]", () => {
     );
 
     expect(response.status).toBe(422);
-    expect(await activityStore.list()).toEqual([created]);
+    expect(await activityStore.list("alice")).toEqual([created]);
   });
 
   it("returns 422 for an empty patch", async () => {
@@ -98,7 +135,27 @@ describe("DELETE /api/activities/[id]", () => {
 
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
-    expect(await activityStore.list()).toEqual([]);
+    expect(await activityStore.list("alice")).toEqual([]);
+  });
+
+  it("returns 401 when signed out and keeps the activity", async () => {
+    const created = await seed();
+    signInAs(null);
+
+    const response = await DELETE(new Request("http://localhost"), context(created.id));
+
+    expect(response.status).toBe(401);
+    expect(await activityStore.list("alice")).toEqual([created]);
+  });
+
+  it("returns 404 for another user's activity and keeps it", async () => {
+    const created = await seed();
+    signInAs("bob");
+
+    const response = await DELETE(new Request("http://localhost"), context(created.id));
+
+    expect(response.status).toBe(404);
+    expect(await activityStore.list("alice")).toEqual([created]);
   });
 
   it("returns 404 for an unknown id", async () => {

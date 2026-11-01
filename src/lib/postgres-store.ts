@@ -1,5 +1,5 @@
-import { desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { and, desc, eq } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { activities } from "../db/schema";
 import type { Activity } from "./schemas";
 import type { ActivityStore } from "./store";
@@ -15,38 +15,40 @@ function toActivity(row: typeof activities.$inferSelect): Activity {
   };
 }
 
-export function createPostgresActivityStore(connectionString: string): ActivityStore {
-  const db = drizzle(connectionString);
-
+export function createPostgresActivityStore(db: NodePgDatabase): ActivityStore {
   return {
-    async list() {
-      const rows = await db.select().from(activities).orderBy(desc(activities.performedAt));
+    async list(userId) {
+      const rows = await db
+        .select()
+        .from(activities)
+        .where(eq(activities.userId, userId))
+        .orderBy(desc(activities.performedAt));
       return rows.map(toActivity);
     },
 
-    async create(input) {
+    async create(userId, input) {
       const [row] = await db
         .insert(activities)
-        .values({ ...input, performedAt: new Date(input.performedAt) })
+        .values({ ...input, userId, performedAt: new Date(input.performedAt) })
         .returning();
       if (!row) throw new Error("Insert returned no row");
       return toActivity(row);
     },
 
-    async update(id, patch) {
+    async update(userId, id, patch) {
       const { performedAt, ...rest } = patch;
       const [row] = await db
         .update(activities)
         .set({ ...rest, ...(performedAt ? { performedAt: new Date(performedAt) } : {}) })
-        .where(eq(activities.id, id))
+        .where(and(eq(activities.id, id), eq(activities.userId, userId)))
         .returning();
       return row ? toActivity(row) : null;
     },
 
-    async delete(id) {
+    async delete(userId, id) {
       const rows = await db
         .delete(activities)
-        .where(eq(activities.id, id))
+        .where(and(eq(activities.id, id), eq(activities.userId, userId)))
         .returning({ id: activities.id });
       return rows.length > 0;
     },

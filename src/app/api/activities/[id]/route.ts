@@ -1,20 +1,31 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { activityStore } from "@/lib/activity-store";
 import { activityPatchSchema } from "@/lib/schemas";
-import { activityStore } from "@/lib/store";
+import { getUser } from "@/lib/session";
 
 // LEARNING NOTE: folders in [brackets] are dynamic segments. In current Next.js
 // `params` is a Promise, so it must be awaited. Ids come from the URL, which is
 // a trust boundary like the body: Postgres throws on a malformed uuid, so a bad
 // id has to be caught here to come back as a 404 instead of a 500.
+//
+// Another user's activity is also a 404, not a 403: a 403 would confirm the id
+// exists. The store makes this automatic by scoping every query to the user.
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+function unauthorized() {
+  return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+}
 
 function notFound() {
   return NextResponse.json({ error: "Activity not found" }, { status: 404 });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const user = await getUser();
+  if (!user) return unauthorized();
+
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) return notFound();
 
@@ -33,16 +44,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const updated = await activityStore.update(id, parsed.data);
+  const updated = await activityStore.update(user.id, id, parsed.data);
   if (!updated) return notFound();
   return NextResponse.json({ data: updated });
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const user = await getUser();
+  if (!user) return unauthorized();
+
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) return notFound();
 
-  const deleted = await activityStore.delete(id);
+  const deleted = await activityStore.delete(user.id, id);
   if (!deleted) return notFound();
   return new NextResponse(null, { status: 204 });
 }

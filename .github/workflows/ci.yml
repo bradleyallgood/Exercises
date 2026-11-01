@@ -19,3 +19,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+        env:
+          # Placeholders: the build imports these modules but never connects.
+          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+          BETTER_AUTH_SECRET: placeholder-secret-for-ci-build-only
+          BETTER_AUTH_URL: http://localhost:3000

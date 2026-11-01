@@ -1,6 +1,9 @@
+import { redirect } from "next/navigation";
 import { ActivityForm } from "@/components/ActivityForm";
+import { SignOutButton } from "@/components/SignOutButton";
+import { activityStore } from "@/lib/activity-store";
+import { getUser } from "@/lib/session";
 import { summarize } from "@/lib/stats";
-import { activityStore } from "@/lib/store";
 
 // LEARNING NOTE: this is a Server Component. It is an async function that
 // reads data directly (no useEffect, no fetch to our own API). The browser
@@ -16,13 +19,19 @@ const dateFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 export default async function HomePage() {
-  const activities = await activityStore.list();
+  const user = await getUser();
+  if (!user) redirect("/login");
+
+  const activities = await activityStore.list(user.id);
   const summary = summarize(activities);
 
   return (
     <main>
       <h1>Activity Tracker</h1>
       <p className="subtitle">Next.js App Router, TypeScript, Zod-validated API.</p>
+      <p className="muted">
+        Signed in as {user.email} <SignOutButton />
+      </p>
 
       <section className="stats" aria-label="Summary">
         <div className="card">
