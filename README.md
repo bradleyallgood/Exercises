@@ -13,7 +13,7 @@ npm run dev        # http://localhost:3000
 
 Other scripts: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
 
-Data is stored in `.data/activities.json` (gitignored), so there is nothing to set up.
+Data is stored in `.data/activities.json` (gitignored) by default, so there is nothing to set up. To use Postgres, set `DATABASE_URL` in `.env.local` and run `npx drizzle-kit migrate`.
 
 Try the API directly:
 
@@ -68,5 +68,5 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 
 ## Known limitations of this starter
 
-- The JSON-file store is for learning only: no concurrency safety, no multi-instance support, and it will not work on serverless hosts with read-only or ephemeral filesystems. Exercise 1 replaces it.
+- The JSON-file store is the fallback when `DATABASE_URL` is not set. It is for learning only: no concurrency safety, no multi-instance support, and it will not work on serverless hosts with read-only or ephemeral filesystems. Use Postgres for anything deployed.
 - No authentication or rate limiting.
