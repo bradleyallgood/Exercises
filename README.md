@@ -39,6 +39,19 @@ npm run docker:stop      # stop and remove the container
 
 The image holds a copy of your code, so changes only appear after `npm run docker:restart`. Use `npm run dev` for hot reload while working. The container does not run migrations, so still run `npx drizzle-kit migrate` from your machine after a schema change. To remove the image's dependency on your local `.env.local`, set the same variables on the host when you deploy.
 
+### Debug it in VS Code
+
+Breakpoints work with `next dev`, not in Docker, because the container runs a production build. Run `npm run docker:stop` first, since debugging needs port 3000.
+
+In the Run and Debug panel (`Ctrl+Shift+D`), pick a configuration and press `F5`:
+
+| Configuration | Stops on breakpoints in |
+| --- | --- |
+| Next.js: debug full stack | Server and browser code, the one to use by default |
+| Next.js: debug server-side | Server Components, route handlers, Server Actions |
+| Next.js: debug client-side | Browser code, with `npm run dev` already running |
+| Vitest: debug current test file | The open test file and the code it calls |
+
 Try the API directly. It needs a session, so sign in first and keep the cookie:
 
 ```bash
