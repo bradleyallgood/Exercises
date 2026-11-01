@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { revalidateTag } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activityStore } from "@/lib/activity-store";
 import { getUser } from "@/lib/session";
@@ -19,6 +20,9 @@ vi.mock("@/lib/activity-store", async () => {
 
 vi.mock("@/lib/session", () => ({ getUser: vi.fn() }));
 
+// revalidateTag throws outside a Next.js request.
+vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }));
+
 function signInAs(id: string | null) {
   vi.mocked(getUser).mockResolvedValue(
     (id ? { id } : null) as Awaited<ReturnType<typeof getUser>>,
@@ -28,6 +32,7 @@ function signInAs(id: string | null) {
 beforeEach(() => signInAs("alice"));
 
 afterEach(async () => {
+  vi.clearAllMocks();
   await rm(path.join(tmpdir(), dataFile), { force: true });
 });
 
@@ -58,6 +63,7 @@ describe("PATCH /api/activities/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: { ...created, durationMinutes: 45 } });
+    expect(revalidateTag).toHaveBeenCalledExactlyOnceWith("activities:alice", { expire: 0 });
   });
 
   it("returns 401 when signed out and leaves the activity unchanged", async () => {
@@ -84,6 +90,7 @@ describe("PATCH /api/activities/[id]", () => {
 
     expect(response.status).toBe(404);
     expect(await activityStore.list("alice")).toEqual([created]);
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown id", async () => {
@@ -118,6 +125,7 @@ describe("PATCH /api/activities/[id]", () => {
 
     expect(response.status).toBe(422);
     expect(await activityStore.list("alice")).toEqual([created]);
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("returns 422 for an empty patch", async () => {
@@ -136,6 +144,7 @@ describe("DELETE /api/activities/[id]", () => {
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
     expect(await activityStore.list("alice")).toEqual([]);
+    expect(revalidateTag).toHaveBeenCalledExactlyOnceWith("activities:alice", { expire: 0 });
   });
 
   it("returns 401 when signed out and keeps the activity", async () => {
@@ -156,6 +165,7 @@ describe("DELETE /api/activities/[id]", () => {
 
     expect(response.status).toBe(404);
     expect(await activityStore.list("alice")).toEqual([created]);
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown id", async () => {

@@ -1,5 +1,7 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { activitiesTag } from "@/lib/activities";
 import { activityStore } from "@/lib/activity-store";
 import { activityPatchSchema } from "@/lib/schemas";
 import { getUser } from "@/lib/session";
@@ -46,6 +48,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const updated = await activityStore.update(user.id, id, parsed.data);
   if (!updated) return notFound();
+  revalidateTag(activitiesTag(user.id), { expire: 0 });
   return NextResponse.json({ data: updated });
 }
 
@@ -58,5 +61,6 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   const deleted = await activityStore.delete(user.id, id);
   if (!deleted) return notFound();
+  revalidateTag(activitiesTag(user.id), { expire: 0 });
   return new NextResponse(null, { status: 204 });
 }

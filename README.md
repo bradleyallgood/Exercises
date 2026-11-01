@@ -58,7 +58,8 @@ curl localhost:3000/api/activities
 | Auth layer 1: optimistic cookie redirect | `src/proxy.ts` |
 | Auth layer 2: real session check per route | `src/lib/session.ts` |
 | Auth layer 3: ownership in every query | `src/lib/postgres-store.ts` |
-| Server Actions, `revalidatePath` | `src/app/actions.ts` |
+| Caching per-user data, `use cache`, tags | `src/lib/activities.ts` |
+| Server Actions, `updateTag` | `src/app/actions.ts` |
 | Client Components, forms, calling a Server Action | `src/components/ActivityForm.tsx` |
 | Layouts and metadata | `src/app/layout.tsx` |
 | Error boundaries | `src/app/error.tsx` |
@@ -72,7 +73,7 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 1. ~~**Postgres + ORM.** Write a second `ActivityStore` backed by Postgres using Prisma or Drizzle, and swap it in. The route and page should not change. This is the biggest gap to close: typed database access.~~
 2. ~~**Edit and delete.** Add `PATCH` and `DELETE` at `app/api/activities/[id]/route.ts` (note: `params` is a Promise in current Next.js). Return `404` for unknown ids. Add tests.~~
 3. ~~**Server Actions.** Replace the fetch in `ActivityForm` with a Server Action and compare. Know when you would pick each.~~
-4. **Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.
+4. ~~**Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.~~
 5. **Caching.** Remove `force-dynamic` and use `revalidatePath`/`revalidateTag` instead. Understand what is cached and why. This trips up experienced developers most.
 6. **Shared types end to end.** Derive the API response types from the same schemas, and consider a typed client or tRPC.
 7. **Ingest external data.** Add a webhook endpoint that accepts wearable-provider payloads (mock them), validates them with Zod, and maps them into `Activity`. This echoes real production experience, so it makes a good interview story.
@@ -90,5 +91,6 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 ## Known limitations of this starter
 
 - The JSON-file store only backs the tests. It has no concurrency safety or multi-instance support, so the app itself always uses Postgres.
+- The `use cache` store is in-memory and per instance. With several servers, a write only clears the cache on the instance that handled it, so others can stay stale for up to the `cacheLife` window, and on serverless hosts entries rarely survive between requests. `use cache: remote` is the fix if that matters.
 - Sign-up has no email verification or password reset.
 - Better Auth's rate limiting only covers its own auth endpoints and keeps counts in memory. The activity API has no rate limiting.

@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activityStore } from "@/lib/activity-store";
 import { getUser } from "@/lib/session";
@@ -19,8 +19,8 @@ vi.mock("@/lib/activity-store", async () => {
 
 vi.mock("@/lib/session", () => ({ getUser: vi.fn() }));
 
-// revalidatePath throws outside a Next.js request.
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// updateTag throws outside a Next.js request.
+vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), updateTag: vi.fn() }));
 
 const valid = { type: "run", durationMinutes: 30, performedAt: "2026-10-30T10:00:00.000Z" };
 
@@ -38,12 +38,12 @@ afterEach(async () => {
 });
 
 describe("createActivity", () => {
-  it("stores a valid activity for the signed-in user and revalidates the dashboard", async () => {
+  it("stores a valid activity for the signed-in user and expires their cached list", async () => {
     const result = await createActivity(valid);
 
     expect(result).toEqual({ error: null });
     expect(await activityStore.list("alice")).toHaveLength(1);
-    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(updateTag).toHaveBeenCalledExactlyOnceWith("activities:alice");
   });
 
   it("ignores a userId in the input", async () => {
@@ -53,21 +53,21 @@ describe("createActivity", () => {
     expect(await activityStore.list("bob")).toEqual([]);
   });
 
-  it("rejects a signed-out caller without storing or revalidating", async () => {
+  it("rejects a signed-out caller without storing or expiring anything", async () => {
     signInAs(null);
 
     const result = await createActivity(valid);
 
     expect(result).toEqual({ error: "Not signed in" });
     expect(await activityStore.list("alice")).toEqual([]);
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(updateTag).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid input without storing or revalidating", async () => {
+  it("rejects invalid input without storing or expiring anything", async () => {
     const result = await createActivity({ type: "teleport", durationMinutes: -5 });
 
     expect(result).toEqual({ error: "Validation failed" });
     expect(await activityStore.list("alice")).toEqual([]);
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(updateTag).not.toHaveBeenCalled();
   });
 });

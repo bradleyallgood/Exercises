@@ -1,34 +1,46 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { ActivityForm } from "@/components/ActivityForm";
 import { SignOutButton } from "@/components/SignOutButton";
-import { activityStore } from "@/lib/activity-store";
+import { getActivities } from "@/lib/activities";
 import { getUser } from "@/lib/session";
 import { summarize } from "@/lib/stats";
 
 // LEARNING NOTE: this is a Server Component. It is an async function that
 // reads data directly (no useEffect, no fetch to our own API). The browser
-// receives finished HTML. Only ActivityForm ships JavaScript to the client.
+// receives finished HTML. Only the client components ship JavaScript.
 //
-// force-dynamic: render on every request so new activities show up. In a real
-// app you would think harder about caching (revalidate, tags, etc).
-export const dynamic = "force-dynamic";
+// Reading the session makes Dashboard request-time, so it streams in behind
+// Suspense while the heading is prerendered into a static shell. force-dynamic
+// is gone: only the data is cached, per user. See lib/activities.ts.
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
-export default async function HomePage() {
-  const user = await getUser();
-  if (!user) redirect("/login");
-
-  const activities = await activityStore.list(user.id);
-  const summary = summarize(activities);
-
+export default function HomePage() {
   return (
     <main>
       <h1>Activity Tracker</h1>
       <p className="subtitle">Next.js App Router, TypeScript, Zod-validated API.</p>
+
+      <Suspense fallback={<p className="muted">Loading your dashboard...</p>}>
+        <Dashboard />
+      </Suspense>
+    </main>
+  );
+}
+
+async function Dashboard() {
+  const user = await getUser();
+  if (!user) redirect("/login");
+
+  const activities = await getActivities();
+  const summary = summarize(activities);
+
+  return (
+    <>
       <p className="muted">
         Signed in as {user.email} <SignOutButton />
       </p>
@@ -72,6 +84,6 @@ export default async function HomePage() {
           ))}
         </ul>
       )}
-    </main>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { revalidateTag } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activityStore } from "@/lib/activity-store";
 import { getUser } from "@/lib/session";
@@ -17,6 +18,9 @@ vi.mock("@/lib/activity-store", async () => {
 });
 
 vi.mock("@/lib/session", () => ({ getUser: vi.fn() }));
+
+// revalidateTag throws outside a Next.js request.
+vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }));
 
 const valid = { type: "run", durationMinutes: 30, performedAt: "2026-10-30T10:00:00.000Z" };
 
@@ -36,6 +40,7 @@ function postRequest(body: unknown) {
 beforeEach(() => signInAs("alice"));
 
 afterEach(async () => {
+  vi.clearAllMocks();
   await rm(path.join(tmpdir(), dataFile), { force: true });
 });
 
@@ -62,6 +67,7 @@ describe("POST /api/activities", () => {
 
     expect(response.status).toBe(201);
     expect(await activityStore.list("alice")).toHaveLength(1);
+    expect(revalidateTag).toHaveBeenCalledExactlyOnceWith("activities:alice", { expire: 0 });
   });
 
   it("ignores a userId in the body", async () => {
@@ -78,10 +84,12 @@ describe("POST /api/activities", () => {
 
     expect(response.status).toBe(401);
     expect(await activityStore.list("alice")).toEqual([]);
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("returns 422 for invalid fields", async () => {
     const response = await POST(postRequest({ type: "teleport" }));
     expect(response.status).toBe(422);
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 });

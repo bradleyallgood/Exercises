@@ -1,5 +1,7 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { activitiesTag } from "@/lib/activities";
 import { activityStore } from "@/lib/activity-store";
 import { activityInputSchema } from "@/lib/schemas";
 import { getUser } from "@/lib/session";
@@ -7,8 +9,10 @@ import { getUser } from "@/lib/session";
 // LEARNING NOTE: files named route.ts under app/ become API endpoints. Export
 // functions named after HTTP methods. They receive a standard Web Request and
 // return a standard Web Response (NextResponse is a thin helper on top).
-
-export const dynamic = "force-dynamic"; // never cache this GET
+//
+// updateTag is not available here, so writes use revalidateTag. { expire: 0 }
+// means no stale data at all: the default "max" profile would show the dashboard
+// one stale read after a write, fine for a blog but not for a user's own data.
 
 export async function GET() {
   const user = await getUser();
@@ -38,5 +42,6 @@ export async function POST(request: Request) {
   }
 
   const created = await activityStore.create(user.id, parsed.data);
+  revalidateTag(activitiesTag(user.id), { expire: 0 });
   return NextResponse.json({ data: created }, { status: 201 });
 }

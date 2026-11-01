@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { activitiesTag } from "@/lib/activities";
 import { activityStore } from "@/lib/activity-store";
 import { activityInputSchema } from "@/lib/schemas";
 import { getUser } from "@/lib/session";
@@ -21,7 +22,8 @@ export async function createActivity(input: unknown): Promise<{ error: string | 
   if (!parsed.success) return { error: "Validation failed" };
 
   await activityStore.create(user.id, parsed.data);
-  // Replaces router.refresh(): the fresh page comes back in the action's response.
-  revalidatePath("/");
+  // updateTag only works in Server Actions: it expires the entry now, so the page
+  // that comes back in this response shows the user their own write.
+  updateTag(activitiesTag(user.id));
   return { error: null };
 }
