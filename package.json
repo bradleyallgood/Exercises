@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docker:restart": "docker compose up --build --force-recreate --wait",
+    "docker:logs": "docker compose logs -f",
+    "docker:stop": "docker compose down",
+    "prepare": "husky"
   },
   "dependencies": {
     "better-auth": "^1.7.14",
@@ -29,6 +33,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.14.0",
     "eslint-config-next": "^16.4.3",
+    "husky": "^9.1.7",
     "typescript": "^5.6.0",
     "vitest": "^5.0.5"
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityInputSchema, activityPatchSchema } from "./schemas";
+import { activityInputSchema, activityPatchSchema, activitySchema } from "./schemas";
 
 const valid = {
   type: "run",
@@ -35,6 +35,26 @@ describe("activityInputSchema", () => {
     expect(activityInputSchema.safeParse({ ...valid, performedAt: "yesterday" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("activitySchema", () => {
+  const stored = {
+    ...valid,
+    id: "9b2f6c1e-3d4a-4e8b-9f10-2a7c5d6e8f01",
+    createdAt: "2026-10-31T12:00:01.000Z",
+  };
+
+  it("accepts a stored activity", () => {
+    expect(activitySchema.safeParse(stored).success).toBe(true);
+  });
+
+  it("requires the server-generated fields", () => {
+    expect(activitySchema.safeParse(valid).success).toBe(false);
+  });
+
+  it("rejects a malformed id", () => {
+    expect(activitySchema.safeParse({ ...stored, id: "abc" }).success).toBe(false);
   });
 });
 

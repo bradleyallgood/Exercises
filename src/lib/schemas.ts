@@ -20,6 +20,25 @@ export const activityPatchSchema = activityInputSchema
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Provide at least one field to update");
 
+export const activitySchema = activityInputSchema.extend({
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+});
+
+// The API's response bodies. Route handlers are typed against these at compile
+// time, and the typed client validates them at runtime (see api-client.ts).
+export const activityResponseSchema = z.object({ data: activitySchema });
+export const activityListResponseSchema = z.object({ data: z.array(activitySchema) });
+export const apiErrorSchema = z.object({
+  error: z.string(),
+  details: z
+    .object({
+      formErrors: z.array(z.string()),
+      fieldErrors: z.record(z.string(), z.array(z.string())),
+    })
+    .optional(),
+});
+
 /** What clients send us. */
 export type ActivityInput = z.infer<typeof activityInputSchema>;
 
@@ -27,9 +46,10 @@ export type ActivityInput = z.infer<typeof activityInputSchema>;
 export type ActivityPatch = z.infer<typeof activityPatchSchema>;
 
 /** What we store and return: the input plus server-generated fields. */
-export type Activity = ActivityInput & {
-  id: string;
-  createdAt: string;
-};
+export type Activity = z.infer<typeof activitySchema>;
+
+export type ActivityResponse = z.infer<typeof activityResponseSchema>;
+export type ActivityListResponse = z.infer<typeof activityListResponseSchema>;
+export type ApiErrorBody = z.infer<typeof apiErrorSchema>;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

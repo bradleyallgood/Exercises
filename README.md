@@ -14,6 +14,8 @@ npm run dev        # http://localhost:3000, create an account at /signup
 
 Other scripts: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
 
+A pre-commit hook runs lint and tests, and blocks the commit if either fails. `npm install` sets it up. The tests include the Postgres ones when `TEST_DATABASE_URL` is set, so a broken test database blocks commits too.
+
 The app needs Postgres. Create `.env.local` with:
 
 ```bash
@@ -24,6 +26,18 @@ TEST_DATABASE_URL=postgres://...   # optional, must be a separate database
 ```
 
 `TEST_DATABASE_URL` enables the Postgres tests, which **truncate its tables**, so never point it at data you care about. `drizzle-kit migrate` only targets `DATABASE_URL`; to migrate the test database, set `DATABASE_URL` to its URL for that one command.
+
+### Run it in Docker
+
+This runs a production build at http://localhost:3000, using the same `.env.local`. Docker Desktop must be running, and `npm run dev` must be stopped because both use port 3000.
+
+```bash
+npm run docker:restart   # build and start, or apply your latest changes
+npm run docker:logs      # follow the server logs (Ctrl+C stops following, not the server)
+npm run docker:stop      # stop and remove the container
+```
+
+The image holds a copy of your code, so changes only appear after `npm run docker:restart`. Use `npm run dev` for hot reload while working. The container does not run migrations, so still run `npx drizzle-kit migrate` from your machine after a schema change. To remove the image's dependency on your local `.env.local`, set the same variables on the host when you deploy.
 
 Try the API directly. It needs a session, so sign in first and keep the cookie:
 
@@ -54,6 +68,7 @@ curl localhost:3000/api/activities
 | Interface-based data layer (swappable storage) | `src/lib/store.ts` |
 | Pure, unit-testable logic | `src/lib/stats.ts` |
 | Route handlers, status codes, validation errors | `src/app/api/activities/route.ts` |
+| Typed API client, validating responses at runtime | `src/lib/api-client.ts` |
 | Server Components, direct data access, no `useEffect` | `src/app/page.tsx` |
 | Auth layer 1: optimistic cookie redirect | `src/proxy.ts` |
 | Auth layer 2: real session check per route | `src/lib/session.ts` |
@@ -74,7 +89,7 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 2. ~~**Edit and delete.** Add `PATCH` and `DELETE` at `app/api/activities/[id]/route.ts` (note: `params` is a Promise in current Next.js). Return `404` for unknown ids. Add tests.~~
 3. ~~**Server Actions.** Replace the fetch in `ActivityForm` with a Server Action and compare. Know when you would pick each.~~
 4. ~~**Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.~~
-5. **Caching.** Remove `force-dynamic` and use `revalidatePath`/`revalidateTag` instead. Understand what is cached and why. This trips up experienced developers most.
+5. ~~**Caching.** Remove `force-dynamic` and use `revalidatePath`/`revalidateTag` instead. Understand what is cached and why. This trips up experienced developers most.~~
 6. **Shared types end to end.** Derive the API response types from the same schemas, and consider a typed client or tRPC.
 7. **Ingest external data.** Add a webhook endpoint that accepts wearable-provider payloads (mock them), validates them with Zod, and maps them into `Activity`. This echoes real production experience, so it makes a good interview story.
 8. **Deploy.** Vercel for the app plus a hosted Postgres (Neon, Supabase), or Docker on Azure/GCP.

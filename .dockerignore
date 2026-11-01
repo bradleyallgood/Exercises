@@ -1,0 +1,12 @@
+.git
+.github
+.husky
+.next
+.data
+.env*
+node_modules
+Dockerfile
+.dockerignore
+docker-compose.yml
+*.md
+*.tsbuildinfo
