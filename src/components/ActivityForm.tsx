@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createActivity } from "@/app/actions";
 import { ACTIVITY_TYPES } from "@/lib/schemas";
 
 // LEARNING NOTE: "use client" marks a Client Component: it runs in the browser
@@ -14,19 +14,19 @@ function toLocalInputValue(date: Date): string {
 }
 
 export function ActivityForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, startSubmit] = useTransition();
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setSubmitting(true);
 
     const form = event.currentTarget;
     const data = new FormData(form);
     const distance = String(data.get("distanceKm") ?? "").trim();
 
+    // LEARNING NOTE: datetime-local has no timezone, so convert it here in the
+    // browser. Parsed in the action, it would use the server's timezone instead.
     const payload = {
       type: data.get("type"),
       durationMinutes: Number(data.get("durationMinutes")),
@@ -34,29 +34,18 @@ export function ActivityForm() {
       performedAt: new Date(String(data.get("performedAt"))).toISOString(),
     };
 
-    try {
-      const response = await fetch("/api/activities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        setError(body?.error ?? `Request failed (${response.status})`);
-        return;
+    startSubmit(async () => {
+      try {
+        const result = await createActivity(payload);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        form.reset();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-
-      form.reset();
-      // Re-run the Server Component so the list and stats update.
-      router.refresh();
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   return (

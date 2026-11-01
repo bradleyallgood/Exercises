@@ -38,7 +38,8 @@ curl -X POST localhost:3000/api/activities -H "Content-Type: application/json" \
 | Pure, unit-testable logic | `src/lib/stats.ts` |
 | Route handlers, status codes, validation errors | `src/app/api/activities/route.ts` |
 | Server Components, direct data access, no `useEffect` | `src/app/page.tsx` |
-| Client Components, forms, `router.refresh()` | `src/components/ActivityForm.tsx` |
+| Server Actions, `revalidatePath` | `src/app/actions.ts` |
+| Client Components, forms, calling a Server Action | `src/components/ActivityForm.tsx` |
 | Layouts and metadata | `src/app/layout.tsx` |
 | Error boundaries | `src/app/error.tsx` |
 | Tests | `src/lib/*.test.ts` |
@@ -49,7 +50,7 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 ## Exercises (in priority order for job readiness)
 
 1. ~~**Postgres + ORM.** Write a second `ActivityStore` backed by Postgres using Prisma or Drizzle, and swap it in. The route and page should not change. This is the biggest gap to close: typed database access.~~
-2. **Edit and delete.** Add `PATCH` and `DELETE` at `app/api/activities/[id]/route.ts` (note: `params` is a Promise in current Next.js). Return `404` for unknown ids. Add tests.
+2. ~~**Edit and delete.** Add `PATCH` and `DELETE` at `app/api/activities/[id]/route.ts` (note: `params` is a Promise in current Next.js). Return `404` for unknown ids. Add tests.~~
 3. **Server Actions.** Replace the fetch in `ActivityForm` with a Server Action and compare. Know when you would pick each.
 4. **Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.
 5. **Caching.** Remove `force-dynamic` and use `revalidatePath`/`revalidateTag` instead. Understand what is cached and why. This trips up experienced developers most.
