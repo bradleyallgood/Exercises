@@ -3,7 +3,8 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { beforeEach, describe, expect, it } from "vitest";
 import { user } from "../db/auth-schema";
-import { createPostgresActivityStore } from "./postgres-store";
+import { wearableConnections } from "../db/schema";
+import { createPostgresActivityStore, createPostgresWearableConnections } from "./postgres-store";
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -93,6 +94,50 @@ describe.skipIf(!url)("postgres activity store", () => {
 
   it("returns false when deleting an unknown id", async () => {
     expect(await store.delete(alice, randomUUID())).toBe(false);
+  });
+
+  it("creates an external activity once, then updates it", async () => {
+    const ref = { source: "pulse", externalId: "act_1" };
+    const input = { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" } as const;
+
+    const first = await store.upsertExternal(alice, ref, { ...input, distanceKm: 2 });
+    const second = await store.upsertExternal(alice, ref, { ...input, durationMinutes: 20 });
+
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.activity.id).toBe(first.activity.id);
+    expect(second.activity.createdAt).toBe(first.activity.createdAt);
+    expect(second.activity.distanceKm).toBeUndefined();
+    expect(await store.list(alice)).toHaveLength(1);
+  });
+
+  it("keeps the same external id separate per user", async () => {
+    const ref = { source: "pulse", externalId: "act_1" };
+    const input = { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" } as const;
+
+    await store.upsertExternal(alice, ref, input);
+    await store.upsertExternal(bob, ref, { ...input, durationMinutes: 99 });
+
+    expect((await store.list(alice)).map((a) => a.durationMinutes)).toEqual([10]);
+    expect((await store.list(bob)).map((a) => a.durationMinutes)).toEqual([99]);
+  });
+
+  it("never treats activities logged by hand as duplicates", async () => {
+    const input = { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" } as const;
+
+    await store.create(alice, input);
+    await store.create(alice, input);
+
+    expect(await store.list(alice)).toHaveLength(2);
+  });
+
+  it("finds the user linked to a wearable athlete", async () => {
+    const connections = createPostgresWearableConnections(db);
+    await db.insert(wearableConnections).values({ provider: "pulse", athleteId: "ath_1", userId: alice });
+
+    expect(await connections.findUserId("pulse", "ath_1")).toBe(alice);
+    expect(await connections.findUserId("pulse", "ath_2")).toBeNull();
+    expect(await connections.findUserId("other", "ath_1")).toBeNull();
   });
 
   it("keeps each user's activities separate", async () => {

@@ -22,6 +22,7 @@ The app needs Postgres. Create `.env.local` with:
 DATABASE_URL=postgres://...
 BETTER_AUTH_SECRET=...      # openssl rand -hex 32
 BETTER_AUTH_URL=http://localhost:3000
+WEARABLE_WEBHOOK_SECRET=...  # openssl rand -hex 32, without it the webhook refuses everything
 TEST_DATABASE_URL=postgres://...   # optional, must be a separate database
 ```
 
@@ -51,6 +52,18 @@ In the Run and Debug panel (`Ctrl+Shift+D`), pick a configuration and press `F5`
 | Next.js: debug server-side | Server Components, route handlers, Server Actions |
 | Next.js: debug client-side | Browser code, with `npm run dev` already running |
 | Vitest: debug current test file | The open test file and the code it calls |
+
+### Try the wearable webhook
+
+`POST /api/webhooks/wearable` imports activities from a mocked provider. `scripts/wearable.mjs` plays the provider, using the same secret to sign its requests:
+
+```bash
+npm run wearable -- link you@example.com   # link your account to the mock athlete
+npm run wearable -- send                   # send a new activity, then refresh the dashboard
+npm run wearable -- send act_123           # run twice: the second run updates, not duplicates
+```
+
+To send to another server, set `WEBHOOK_URL`.
 
 Try the API directly. It needs a session, so sign in first and keep the cookie:
 
@@ -82,6 +95,8 @@ curl localhost:3000/api/activities
 | Pure, unit-testable logic | `src/lib/stats.ts` |
 | Route handlers, status codes, validation errors | `src/app/api/activities/route.ts` |
 | Typed API client, validating responses at runtime | `src/lib/api-client.ts` |
+| Webhooks: signatures, idempotency, status codes | `src/app/api/webhooks/wearable/route.ts` |
+| Mapping external data into your own model | `src/lib/wearable.ts` |
 | Server Components, direct data access, no `useEffect` | `src/app/page.tsx` |
 | Auth layer 1: optimistic cookie redirect | `src/proxy.ts` |
 | Auth layer 2: real session check per route | `src/lib/session.ts` |
@@ -103,7 +118,7 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 3. ~~**Server Actions.** Replace the fetch in `ActivityForm` with a Server Action and compare. Know when you would pick each.~~
 4. ~~**Auth.** Add Auth.js (or similar) so activities belong to a user. Protect the API with middleware/`proxy` and per-route checks.~~
 5. ~~**Caching.** Remove `force-dynamic` and use `revalidatePath`/`revalidateTag` instead. Understand what is cached and why. This trips up experienced developers most.~~
-6. **Shared types end to end.** Derive the API response types from the same schemas, and consider a typed client or tRPC.
+6. ~~**Shared types end to end.** Derive the API response types from the same schemas, and consider a typed client or tRPC.~~
 7. **Ingest external data.** Add a webhook endpoint that accepts wearable-provider payloads (mock them), validates them with Zod, and maps them into `Activity`. This echoes real production experience, so it makes a good interview story.
 8. **Deploy.** Vercel for the app plus a hosted Postgres (Neon, Supabase), or Docker on Azure/GCP.
 9. **Testing depth.** Add a route-handler test (call `POST(new Request(...))` directly) and a component test with React Testing Library; consider Playwright for one end-to-end flow.
@@ -120,5 +135,6 @@ Read them in that order. Each has a `LEARNING NOTE` comment.
 
 - The JSON-file store only backs the tests. It has no concurrency safety or multi-instance support, so the app itself always uses Postgres.
 - The `use cache` store is in-memory and per instance. With several servers, a write only clears the cache on the instance that handled it, so others can stay stale for up to the `cacheLife` window, and on serverless hosts entries rarely survive between requests. `use cache: remote` is the fix if that matters.
+- Linking a wearable is a script, standing in for the OAuth flow a real provider would use. A provider's delete events are not handled, and an imported activity deleted here comes back if the provider resends it.
 - Sign-up has no email verification or password reset.
 - Better Auth's rate limiting only covers its own auth endpoints and keeps counts in memory. The activity API has no rate limiting.

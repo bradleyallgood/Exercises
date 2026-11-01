@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "wearable": "node --env-file=.env.local scripts/wearable.mjs",
     "docker:restart": "docker compose up --build --force-recreate --wait",
     "docker:logs": "docker compose logs -f",
     "docker:stop": "docker compose down",

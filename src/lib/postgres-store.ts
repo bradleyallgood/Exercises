@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { activities } from "../db/schema";
+import { activities, wearableConnections } from "../db/schema";
 import type { Activity } from "./schemas";
 import type { ActivityStore } from "./store";
 
@@ -51,6 +51,39 @@ export function createPostgresActivityStore(db: NodePgDatabase): ActivityStore {
         .where(and(eq(activities.id, id), eq(activities.userId, userId)))
         .returning({ id: activities.id });
       return rows.length > 0;
+    },
+
+    async upsertExternal(userId, { source, externalId }, input) {
+      const performedAt = new Date(input.performedAt);
+      const [row] = await db
+        .insert(activities)
+        .values({ ...input, userId, source, externalId, performedAt })
+        .onConflictDoUpdate({
+          target: [activities.userId, activities.source, activities.externalId],
+          // distanceKm is explicit so an update can clear it. createdAt stays.
+          set: { ...input, performedAt, distanceKm: input.distanceKm ?? null },
+        })
+        // xmax is 0 on a freshly inserted row and set on one that was updated.
+        .returning({ ...getTableColumns(activities), created: sql<boolean>`(xmax = 0)` });
+      if (!row) throw new Error("Upsert returned no row");
+      return { activity: toActivity(row), created: row.created };
+    },
+  };
+}
+
+export function createPostgresWearableConnections(db: NodePgDatabase) {
+  return {
+    async findUserId(provider: string, athleteId: string): Promise<string | null> {
+      const [row] = await db
+        .select({ userId: wearableConnections.userId })
+        .from(wearableConnections)
+        .where(
+          and(
+            eq(wearableConnections.provider, provider),
+            eq(wearableConnections.athleteId, athleteId),
+          ),
+        );
+      return row?.userId ?? null;
     },
   };
 }

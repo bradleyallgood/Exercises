@@ -88,6 +88,34 @@ describe("file activity store", () => {
     expect(await store.delete(alice, randomUUID())).toBe(false);
   });
 
+  it("creates an external activity once, then updates it", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    const ref = { source: "pulse", externalId: "act_1" };
+    const input = { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" } as const;
+
+    const first = await store.upsertExternal(alice, ref, { ...input, distanceKm: 2 });
+    const second = await store.upsertExternal(alice, ref, { ...input, durationMinutes: 20 });
+
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.activity.id).toBe(first.activity.id);
+    expect(second.activity.createdAt).toBe(first.activity.createdAt);
+    expect(second.activity.distanceKm).toBeUndefined();
+    expect(await store.list(alice)).toHaveLength(1);
+  });
+
+  it("keeps the same external id separate per user", async () => {
+    const store = createFileActivityStore(path.join(dir, "data.json"));
+    const ref = { source: "pulse", externalId: "act_1" };
+    const input = { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" } as const;
+
+    await store.upsertExternal(alice, ref, input);
+    await store.upsertExternal(bob, ref, { ...input, durationMinutes: 99 });
+
+    expect((await store.list(alice)).map((a) => a.durationMinutes)).toEqual([10]);
+    expect((await store.list(bob)).map((a) => a.durationMinutes)).toEqual([99]);
+  });
+
   it("keeps each user's activities separate", async () => {
     const store = createFileActivityStore(path.join(dir, "data.json"));
     const created = await store.create(alice, { type: "run", durationMinutes: 10, performedAt: "2026-10-01T10:00:00.000Z" });

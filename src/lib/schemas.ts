@@ -39,6 +39,10 @@ export const apiErrorSchema = z.object({
     .optional(),
 });
 
+export const webhookResponseSchema = z.object({
+  status: z.enum(["created", "updated", "ignored"]),
+});
+
 /** What clients send us. */
 export type ActivityInput = z.infer<typeof activityInputSchema>;
 
@@ -51,5 +55,6 @@ export type Activity = z.infer<typeof activitySchema>;
 export type ActivityResponse = z.infer<typeof activityResponseSchema>;
 export type ActivityListResponse = z.infer<typeof activityListResponseSchema>;
 export type ApiErrorBody = z.infer<typeof apiErrorSchema>;
+export type WebhookResponse = z.infer<typeof webhookResponseSchema>;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

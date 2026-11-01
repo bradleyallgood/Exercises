@@ -16,9 +16,18 @@ export interface ActivityStore {
   update(userId: string, id: string, patch: ActivityPatch): Promise<Activity | null>;
   /** Returns false if this user has no such id. */
   delete(userId: string, id: string): Promise<boolean>;
+  /** Creates the imported activity, or updates it if this ref was seen before. */
+  upsertExternal(
+    userId: string,
+    ref: ExternalRef,
+    input: ActivityInput,
+  ): Promise<{ activity: Activity; created: boolean }>;
 }
 
-type StoredActivity = Activity & { userId: string };
+/** Where an imported activity came from, and its id there. */
+export type ExternalRef = { source: string; externalId: string };
+
+type StoredActivity = Activity & { userId: string } & Partial<ExternalRef>;
 
 function toActivity(stored: StoredActivity): Activity {
   return {
@@ -85,6 +94,25 @@ export function createFileActivityStore(filePath: string): ActivityStore {
       if (remaining.length === all.length) return false;
       await writeAll(remaining);
       return true;
+    },
+
+    async upsertExternal(userId, { source, externalId }, input) {
+      const all = await readAll();
+      const existing = all.find(
+        (a) => a.userId === userId && a.source === source && a.externalId === externalId,
+      );
+      const stored: StoredActivity = {
+        ...input,
+        userId,
+        source,
+        externalId,
+        id: existing?.id ?? randomUUID(),
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+      };
+      await writeAll(
+        existing ? all.map((a) => (a === existing ? stored : a)) : [...all, stored],
+      );
+      return { activity: toActivity(stored), created: !existing };
     },
   };
 }

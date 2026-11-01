@@ -1,5 +1,6 @@
 import { db } from "../db";
-import { createPostgresActivityStore } from "./postgres-store";
+import { createPostgresActivityStore, createPostgresWearableConnections } from "./postgres-store";
 
-/** Shared instance used by the app. */
+/** Shared instances used by the app. */
 export const activityStore = createPostgresActivityStore(db);
+export const wearableConnections = createPostgresWearableConnections(db);
