@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Activity, ActivityInput } from "./schemas";
+import { createPostgresActivityStore } from "./postgres-store";
+
 
 /**
  * LEARNING NOTE: the rest of the app depends on this interface, not on how
@@ -48,7 +50,8 @@ export function createFileActivityStore(filePath: string): ActivityStore {
   };
 }
 
-/** Shared instance used by the app. Data lives in .data/ (gitignored). */
-export const activityStore: ActivityStore = createFileActivityStore(
-  path.join(process.cwd(), ".data", "activities.json"),
-);
+/** Shared instance used by the app. Postgres when configured, otherwise .data/. */
+export const activityStore: ActivityStore = process.env.DATABASE_URL
+  ? createPostgresActivityStore(process.env.DATABASE_URL)
+  : createFileActivityStore(path.join(process.cwd(), ".data", "activities.json"));
+
